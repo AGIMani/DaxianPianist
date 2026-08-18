@@ -1,0 +1,38 @@
+# Nested upstream git metadata kept locally only
+**/.git.upstream/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Training / eval artifacts (multi-GB checkpoints and videos)
+eval_daxian/videos/
+eval_daxian/checkpoints/
+eval_daxian/metrics/
+eval_daxian/swanlog/
+eval_daxian_unlock_pip_dip/videos/
+eval_daxian_unlock_pip_dip/checkpoints/
+eval_daxian_unlock_pip_dip/metrics/
+eval_daxian_unlock_pip_dip/swanlog/
+*.pkl
+*.mp4
+*.mp3
+*.gif
+
+# Original RoboPianist bulky / generated data
+robopianist/soundfonts/
+robopianist/pig_single_finger/
+robopianist/third_party/
+
+# Editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/

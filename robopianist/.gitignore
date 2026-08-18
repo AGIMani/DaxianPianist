@@ -1,0 +1,9 @@
+__pycache__/
+# Only the top-level clone (e.g. mujoco_menagerie), not hand assets.
+/third_party/
+soundfonts/
+*.egg-info/
+.eggs/
+build/
+dist/
+pig_single_finger/

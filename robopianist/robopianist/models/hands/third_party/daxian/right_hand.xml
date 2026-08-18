@@ -1,0 +1,193 @@
+<?xml version="1.0" ?>
+<mujoco model="rh_daxian_hand">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <option impratio="10" timestep="0.005"/>
+  <default>
+    <joint damping="0.05" armature="0.001"/>
+    <geom friction="1 0.005 0.001" condim="3" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+    <position kp="20.0"/>
+  </default>
+  <asset>
+    <mesh name="rh_mesh_right_base_link" file="right_base_link.obj"/>
+    <mesh name="rh_mesh_Right_hand_palm_link" file="Right_hand_palm_link.obj"/>
+    <mesh name="rh_mesh_right_hand_thumb_rota_block_link" file="right_hand_thumb_rota_block_link.obj"/>
+    <mesh name="rh_mesh_right_hand_thumb_rotaback_link2" file="right_hand_thumb_rotaback_link2.obj"/>
+    <mesh name="rh_mesh_right_hand_thumb_MCP_link" file="right_hand_thumb_MCP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_thumb_PIP_link" file="right_hand_thumb_PIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_index_MCP_link" file="right_hand_index_MCP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_index_swing_link" file="right_hand_index_swing_link.obj"/>
+    <mesh name="rh_mesh_right_hand_index_PIP_link" file="right_hand_index_PIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_index_DIP_link" file="right_hand_index_DIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_mid_MCP_link" file="right_hand_mid_MCP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_mid_swing_link" file="right_hand_mid_swing_link.obj"/>
+    <mesh name="rh_mesh_right_hand_mid_PIP_link" file="right_hand_mid_PIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_mid_DIP_link" file="right_hand_mid_DIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_ring_MCP_link" file="right_hand_ring_MCP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_ring_swing_link" file="right_hand_ring_swing_link.obj"/>
+    <mesh name="rh_mesh_right_hand_ring_PIP_link" file="right_hand_ring_PIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_ring_DIP_link" file="right_hand_ring_DIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_pinky_MCP_link" file="right_hand_pinky_MCP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_pinky_swing_link" file="right_hand_pinky_swing_link.obj"/>
+    <mesh name="rh_mesh_right_hand_pinky_PIP_link" file="right_hand_pinky_PIP_link.obj"/>
+    <mesh name="rh_mesh_right_hand_pinky_DIP_link" file="right_hand_pinky_DIP_link.obj"/>
+  </asset>
+  <worldbody>
+    <body name="rh_forearm">
+      <inertial pos="-5.45802e-05 0.0110248 0.00881259" quat="0.687608 -0.175894 -0.203268 0.674491" mass="0.0123877" diaginertia="1.63849e-06 1.52958e-06 1.45785e-06"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_base_link"/>
+      <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_base_link"/>
+      <body name="rh_palm_link" pos="0.0237 -0.0065 0.044138">
+        <inertial pos="-0.0105104 0.000797446 0.00612202" quat="0.624119 0.781327 0.00160022 0.000238028" mass="0.0907911" diaginertia="3.05138e-05 2.01061e-05 1.2527e-05"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.698039 0.698039 0.698039 1" mesh="rh_mesh_Right_hand_palm_link"/>
+        <geom type="mesh" rgba="0.698039 0.698039 0.698039 1" mesh="rh_mesh_Right_hand_palm_link"/>
+      </body>
+      <body name="rh_thumb_rota_block_link" pos="0.023016 0.016557 0.027044" quat="0.978746 -0.104034 -0.175737 -0.0186795">
+        <inertial pos="-0.00810919 0.0166552 0.00358448" quat="0.47677 0.682168 -0.240172 0.499655" mass="0.00865513" diaginertia="6.20063e-07 6.16344e-07 3.75156e-07"/>
+        <joint name="rh_thumb_rota_block_joint" pos="0 0 0" axis="0 0 -1" range="0 2.09" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_rota_block_link"/>
+        <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_rota_block_link"/>
+        <body name="rh_thumb_rotaback_link2" pos="-0.0091878 0.019669 -0.00042716" quat="0.995865 0 0 0.0908446">
+          <inertial pos="0.00710561 0.00429865 0.0251955" quat="0.976944 -0.129091 -0.15724 0.0647466" mass="0.00842254" diaginertia="7.49107e-07 7.07414e-07 4.03675e-07"/>
+          <joint name="rh_thumb_rotaback_joint2" pos="0 0 0" axis="-1 0 0" range="0 1.74" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_rotaback_link2"/>
+          <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_rotaback_link2"/>
+          <body name="rh_thumb_MCP_link" pos="0.014465 0.0025468 0.051604" quat="0.958969 -0.0629211 -0.0180995 -0.275848">
+            <inertial pos="-0.00539885 -0.00117526 0.00902959" quat="0.695361 -0.0485263 -0.197784 0.689202" mass="0.00258181" diaginertia="1.24324e-07 1.01836e-07 5.89666e-08"/>
+            <joint name="rh_thumb_MCP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_MCP_link"/>
+            <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_thumb_MCP_link"/>
+            <body name="rh_thumb_PIP_link" pos="-0.0084 0 0.0241">
+              <inertial pos="0.00399616 0.00194896 0.014399" quat="0.881149 0.354411 0.146249 0.276731" mass="0.0025207" diaginertia="6.35347e-08 4.8321e-08 3.99297e-08"/>
+              <joint name="rh_thumb_PIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_thumb_PIP_link"/>
+              <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_thumb_PIP_link"/>
+              <site name="rh_thumb_PIP_site" pos="0 0 0.015" type="sphere" size="0.004" group="3" rgba="0.9 0.1 0.1 0.8"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="rh_index_MCP_link" pos="0.0271 0.027373 0.086723" quat="0.998511 -0.0545579 0 0">
+        <inertial pos="-0.00838598 9.44004e-06 0.00255611" quat="-0.014783 0.668153 0.017539 0.74367" mass="0.00194176" diaginertia="8.61276e-08 5.63823e-08 5.35714e-08"/>
+        <joint name="rh_index_MCP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_index_MCP_link"/>
+        <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_index_MCP_link"/>
+        <body name="rh_index_swing_link" pos="-0.0134 0 0.01">
+          <inertial pos="0.00642896 1.9347e-05 0.0242659" quat="0.999904 0.00536581 0.0127406 0.00048795" mass="0.00586436" diaginertia="3.17977e-07 2.71015e-07 2.02595e-07"/>
+          <joint name="rh_index_swing_joint" pos="0 0 0" axis="-1 0 0" range="-0.35 0.35" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_index_swing_link"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_index_swing_link"/>
+          <body name="rh_index_PIP_link" pos="0.0156 0 0.041">
+            <inertial pos="-0.00519847 -0.00133142 0.0123873" quat="0.691075 -0.0281302 -0.1381 0.70891" mass="0.00135423" diaginertia="6.59854e-08 5.65244e-08 3.01418e-08"/>
+            <joint name="rh_index_PIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_index_PIP_link"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_index_PIP_link"/>
+            <body name="rh_index_DIP_link" pos="-0.0084 0 0.0261">
+              <inertial pos="0.0028545 0.00194421 0.0147014" quat="0.886198 0.343294 0.111485 0.29047" mass="0.0025207" diaginertia="6.35344e-08 4.83184e-08 3.99317e-08"/>
+              <joint name="rh_index_DIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_index_DIP_link"/>
+              <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_index_DIP_link"/>
+              <site name="rh_index_DIP_site" pos="0 0 0.015" type="sphere" size="0.004" group="3" rgba="0.9 0.1 0.1 0.8"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="rh_mid_MCP_link" pos="0.0272 0.0015 0.088138">
+        <inertial pos="-0.00838598 9.43463e-06 0.0025561" quat="-0.0147829 0.668153 0.0175389 0.74367" mass="0.00194176" diaginertia="8.61276e-08 5.63823e-08 5.35714e-08"/>
+        <joint name="rh_mid_MCP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_mid_MCP_link"/>
+        <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_mid_MCP_link"/>
+        <body name="rh_mid_swing_link" pos="-0.014875 0 0.01">
+          <inertial pos="0.00790395 2.23879e-05 0.0242658" quat="0.999908 0.0046668 0.0127414 0.000400221" mass="0.00586436" diaginertia="3.17977e-07 2.71013e-07 2.02597e-07"/>
+          <joint name="rh_mid_swing_joint" pos="0 0 0" axis="-1 0 0" range="-0.35 0.35" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_mid_swing_link"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_mid_swing_link"/>
+          <body name="rh_mid_PIP_link" pos="0.017075 0 0.041">
+            <inertial pos="-0.00556149 -0.00148976 0.0136655" quat="0.658918 -0.00175397 -0.0953504 0.746145" mass="0.00325302" diaginertia="2.93603e-07 2.62907e-07 7.45459e-08"/>
+            <joint name="rh_mid_PIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_mid_PIP_link"/>
+            <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_mid_PIP_link"/>
+            <body name="rh_mid_DIP_link" pos="-0.0084 0 0.0341">
+              <inertial pos="0.0028545 0.00194896 0.0147062" quat="0.886198 0.343294 0.111485 0.29047" mass="0.0025207" diaginertia="6.35344e-08 4.83184e-08 3.99317e-08"/>
+              <joint name="rh_mid_DIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_mid_DIP_link"/>
+              <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_mid_DIP_link"/>
+              <site name="rh_mid_DIP_site" pos="0 0 0.015" type="sphere" size="0.004" group="3" rgba="0.9 0.1 0.1 0.8"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="rh_ring_MCP_link" pos="0.0271 -0.022574 0.080986" quat="0.999048 0.0436192 0 0">
+        <inertial pos="-0.00838598 9.4347e-06 0.0025561" quat="-0.0147829 0.668153 0.0175388 0.74367" mass="0.00194176" diaginertia="8.61276e-08 5.63823e-08 5.35714e-08"/>
+        <joint name="rh_ring_MCP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_ring_MCP_link"/>
+        <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_ring_MCP_link"/>
+        <body name="rh_ring_swing_link" pos="-0.0149 0 0.01">
+          <inertial pos="0.00792895 1.9342e-05 0.0242658" quat="0.999904 0.00536581 0.0127406 0.000488048" mass="0.00586436" diaginertia="3.17977e-07 2.71015e-07 2.02595e-07"/>
+          <joint name="rh_ring_swing_joint" pos="0 0 0" axis="-1 0 0" range="-0.35 0.35" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_ring_swing_link"/>
+          <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_ring_swing_link"/>
+          <body name="rh_ring_PIP_link" pos="0.0171 0 0.041">
+            <inertial pos="-0.00519847 -0.00133143 0.0123164" quat="0.69105 -0.02807 -0.138042 0.708948" mass="0.00135423" diaginertia="6.59852e-08 5.65217e-08 3.01441e-08"/>
+            <joint name="rh_ring_PIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_ring_PIP_link"/>
+            <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_ring_PIP_link"/>
+            <body name="rh_ring_DIP_link" pos="-0.0084 0 0.0261">
+              <inertial pos="0.0028545 0.00194421 0.0147014" quat="0.886198 0.343294 0.111484 0.290471" mass="0.0025207" diaginertia="6.35344e-08 4.83184e-08 3.99317e-08"/>
+              <joint name="rh_ring_DIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_ring_DIP_link"/>
+              <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_ring_DIP_link"/>
+              <site name="rh_ring_DIP_site" pos="0 0 0.015" type="sphere" size="0.004" group="3" rgba="0.9 0.1 0.1 0.8"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="rh_pinky_MCP_link" pos="0.0271 -0.043922 0.071353" quat="0.998156 0.0607076 0 0">
+        <inertial pos="-0.00838598 9.43473e-06 0.0025561" quat="-0.0147829 0.668153 0.0175388 0.74367" mass="0.00194176" diaginertia="8.61276e-08 5.63823e-08 5.35714e-08"/>
+        <joint name="rh_pinky_MCP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_pinky_MCP_link"/>
+        <geom type="mesh" rgba="0.898039 0.917647 0.929412 1" mesh="rh_mesh_right_hand_pinky_MCP_link"/>
+        <body name="rh_pinky_swing_link" pos="-0.014875 0 0.01">
+          <inertial pos="0.00612313 1.92495e-05 0.0209296" quat="0.99998 0.00600196 0.00173741 0.000541512" mass="0.00413548" diaginertia="1.9242e-07 1.63413e-07 1.07365e-07"/>
+          <joint name="rh_pinky_swing_joint" pos="0 0 0" axis="-1 0 0" range="-0.35 0.35" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_pinky_swing_link"/>
+          <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_pinky_swing_link"/>
+          <body name="rh_pinky_PIP_link" pos="0.014075 0 0.036">
+            <inertial pos="-0.0052982 -0.00158308 0.0107408" quat="0.660602 -0.0950061 -0.209549 0.71461" mass="0.00127335" diaginertia="5.49516e-08 4.56626e-08 2.78918e-08"/>
+            <joint name="rh_pinky_PIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_pinky_PIP_link"/>
+            <geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="rh_mesh_right_hand_pinky_PIP_link"/>
+            <body name="rh_pinky_DIP_link" pos="-0.0084 0 0.023">
+              <inertial pos="0.0028545 0.00194908 0.014706" quat="0.886198 0.343294 0.111484 0.290471" mass="0.0025207" diaginertia="6.35344e-08 4.83184e-08 3.99317e-08"/>
+              <joint name="rh_pinky_DIP_joint" pos="0 0 0" axis="0 1 0" range="0 1.57" actuatorfrcrange="-5 5" damping="0.05" armature="0.001"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="1 1 1 1" mesh="rh_mesh_right_hand_pinky_DIP_link"/>
+              <geom type="mesh" rgba="1 1 1 1" mesh="rh_mesh_right_hand_pinky_DIP_link"/>
+              <site name="rh_pinky_DIP_site" pos="0 0 0.015" type="sphere" size="0.004" group="3" rgba="0.9 0.1 0.1 0.8"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="rh_A_thumb_rota_block_joint" joint="rh_thumb_rota_block_joint" ctrlrange="0 2.09" kp="20.0"/>
+    <position name="rh_A_thumb_rotaback_joint2" joint="rh_thumb_rotaback_joint2" ctrlrange="0 1.74" kp="20.0"/>
+    <position name="rh_A_thumb_MCP_joint" joint="rh_thumb_MCP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_thumb_PIP_joint" joint="rh_thumb_PIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_index_MCP_joint" joint="rh_index_MCP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_index_swing_joint" joint="rh_index_swing_joint" ctrlrange="-0.35 0.35" kp="20.0"/>
+    <position name="rh_A_index_PIP_joint" joint="rh_index_PIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_index_DIP_joint" joint="rh_index_DIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_mid_MCP_joint" joint="rh_mid_MCP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_mid_swing_joint" joint="rh_mid_swing_joint" ctrlrange="-0.35 0.35" kp="20.0"/>
+    <position name="rh_A_mid_PIP_joint" joint="rh_mid_PIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_mid_DIP_joint" joint="rh_mid_DIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_ring_MCP_joint" joint="rh_ring_MCP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_ring_swing_joint" joint="rh_ring_swing_joint" ctrlrange="-0.35 0.35" kp="20.0"/>
+    <position name="rh_A_ring_PIP_joint" joint="rh_ring_PIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_ring_DIP_joint" joint="rh_ring_DIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_pinky_MCP_joint" joint="rh_pinky_MCP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_pinky_swing_joint" joint="rh_pinky_swing_joint" ctrlrange="-0.35 0.35" kp="20.0"/>
+    <position name="rh_A_pinky_PIP_joint" joint="rh_pinky_PIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+    <position name="rh_A_pinky_DIP_joint" joint="rh_pinky_DIP_joint" ctrlrange="0 1.57" kp="20.0"/>
+  </actuator>
+</mujoco>
