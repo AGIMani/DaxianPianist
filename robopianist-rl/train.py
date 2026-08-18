@@ -47,6 +47,7 @@ class Args:
     robot: str = "daxian"
     n_steps_lookahead: int = 10
     trim_silence: bool = False
+    initial_buffer_time: float = 0.0
     gravity_compensation: bool = False
     reduced_action_space: bool = False
     # Comparison run: reduced space but four-finger PIP/DIP are policy-controlled.
@@ -250,6 +251,7 @@ def get_env(args: Args, record_dir: Optional[Path] = None):
     task_kwargs = dict(
         n_steps_lookahead=args.n_steps_lookahead,
         trim_silence=args.trim_silence,
+        initial_buffer_time=args.initial_buffer_time,
         gravity_compensation=args.gravity_compensation,
         reduced_action_space=args.reduced_action_space,
         unlock_four_finger_pip_dip=args.unlock_four_finger_pip_dip,
