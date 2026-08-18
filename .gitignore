@@ -1,4 +1,5 @@
 # Nested upstream git metadata kept locally only
+.git.upstream/
 **/.git.upstream/
 
 # Python
