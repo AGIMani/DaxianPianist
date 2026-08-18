@@ -14,6 +14,7 @@
 
 from robopianist.models.hands.base import Hand, HandSide
 from robopianist.models.hands.daxian_hand import DaxianHand
+from robopianist.models.hands.daxian_v2_hand import DaxianV2Hand
 from robopianist.models.hands.shadow_hand import ShadowHand
 
-__all__ = ["Hand", "HandSide", "DaxianHand", "ShadowHand"]
+__all__ = ["Hand", "HandSide", "DaxianHand", "DaxianV2Hand", "ShadowHand"]

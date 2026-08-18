@@ -72,7 +72,8 @@ def load(
         recompile_physics: Whether to recompile the physics.
         legacy_step: Whether to use the legacy step function.
         task_kwargs: Additional keyword arguments to pass to the task.
-        robot: Hand model. ``daxian`` (default) or ``shadow``.
+        robot: Hand model. ``daxian`` / ``daxian_v3`` (default), ``daxian_v2``,
+            or ``shadow``.
     """
     if midi_file is not None:
         midi = music.load(midi_file, stretch=stretch, shift=shift)

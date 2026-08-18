@@ -114,15 +114,18 @@ class DaxianHand(base.Hand):
         reduced_action_space: bool = False,
         unlock_four_finger_pip_dip: bool = False,
         forearm_dofs: Sequence[str] = _DEFAULT_FOREARM_DOFS,
+        consts_module=None,
     ) -> None:
         del restrict_wrist_yaw_range  # Daxian has no WRJ2 analogue.
 
+        self._c = consts_module or consts
+
         if side == base.HandSide.RIGHT:
             self._prefix = "rh_"
-            xml_file = consts.RIGHT_DAXIAN_HAND_XML
+            xml_file = self._c.RIGHT_DAXIAN_HAND_XML
         elif side == base.HandSide.LEFT:
             self._prefix = "lh_"
-            xml_file = consts.LEFT_DAXIAN_HAND_XML
+            xml_file = self._c.LEFT_DAXIAN_HAND_XML
         else:
             raise ValueError(f"Unsupported hand side: {side}")
 
@@ -134,7 +137,7 @@ class DaxianHand(base.Hand):
         self._reduce_action_space = reduced_action_space
         self._forearm_dofs = forearm_dofs
         self._pinned_joints = (
-            frozenset(consts.pinned_joints(unlock_four_finger_pip_dip))
+            frozenset(self._c.pinned_joints(unlock_four_finger_pip_dip))
             if reduced_action_space
             else frozenset()
         )
@@ -187,8 +190,8 @@ class DaxianHand(base.Hand):
             if actuator.name in self._forearm_dofs:
                 continue
             actuator.forcerange = (
-                -consts.FINGER_FORCE_LIMIT,
-                consts.FINGER_FORCE_LIMIT,
+                -self._c.FINGER_FORCE_LIMIT,
+                self._c.FINGER_FORCE_LIMIT,
             )
 
     def _configure_thumb(self) -> None:
@@ -201,7 +204,7 @@ class DaxianHand(base.Hand):
         ranges are the MJCF limits in `THUMB_ROTA_BLOCK_RANGE` /
         `THUMB_ROTABACK_RANGE` (must contain `THUMB_REST_CTRL`).
         """
-        for body_name in consts.THUMB_HOUSING_BODIES:
+        for body_name in getattr(self._c, "THUMB_HOUSING_BODIES", ()):
             body = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + body_name
             )
@@ -213,15 +216,20 @@ class DaxianHand(base.Hand):
                 geom.contype = 0
                 geom.conaffinity = 0
 
-        for body_a, body_b in consts.THUMB_PALM_EXCLUDE:
+        for body_a, body_b in getattr(self._c, "THUMB_PALM_EXCLUDE", ()):
             self._mjcf_root.contact.add(
                 "exclude",
                 body1=self._prefix + body_a,
                 body2=self._prefix + body_b,
             )
 
-        for joint_name in ("thumb_rota_block_joint", "thumb_rotaback_joint2"):
-            lo_hi = consts.thumb_policy_range(joint_name)
+        range_joints = getattr(
+            self._c,
+            "THUMB_RANGE_JOINTS",
+            ("thumb_rota_block_joint", "thumb_rotaback_joint2"),
+        )
+        for joint_name in range_joints:
+            lo_hi = self._c.thumb_policy_range(joint_name)
             joint = mjcf_utils.safe_find(
                 self._mjcf_root, "joint", self._prefix + joint_name
             )
@@ -239,16 +247,16 @@ class DaxianHand(base.Hand):
         return (x, -y, z) if self._hand_side == base.HandSide.LEFT else (x, y, z)
 
     def _fingertip_contact_pos(self, tip_name: str) -> Tuple[float, float, float]:
-        return self._mirror_y(consts.FINGERTIP_SITE_POS[tip_name])
+        return self._mirror_y(self._c.FINGERTIP_SITE_POS[tip_name])
 
     def _add_fingertip_collision_spheres(self) -> None:
         """Replace each distal collision mesh with a palmar pad sphere."""
-        radius = consts.FINGERTIP_COLLISION_RADIUS
-        for tip_name, rgb in zip(consts.FINGERTIP_BODIES, consts.FINGERTIP_COLORS):
+        radius = self._c.FINGERTIP_COLLISION_RADIUS
+        for tip_name, rgb in zip(self._c.FINGERTIP_BODIES, self._c.FINGERTIP_COLORS):
             body = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + tip_name
             )
-            pos = self._mirror_y(consts.FINGERTIP_COLLISION_POS[tip_name])
+            pos = self._mirror_y(self._c.FINGERTIP_COLLISION_POS[tip_name])
             rgba = rgb + (0.85,)
             converted = False
             for geom in list(body.geom):
@@ -287,7 +295,7 @@ class DaxianHand(base.Hand):
 
     def _add_mjcf_elements(self) -> None:
         # Drop pre-baked tip sites from the XML so we own naming.
-        for tip_name in consts.FINGERTIP_BODIES:
+        for tip_name in self._c.FINGERTIP_BODIES:
             tip_elem = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + tip_name
             )
@@ -295,7 +303,7 @@ class DaxianHand(base.Hand):
                 site.remove()
 
         fingertip_sites = []
-        for tip_name in consts.FINGERTIP_BODIES:
+        for tip_name in self._c.FINGERTIP_BODIES:
             tip_elem = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + tip_name
             )
@@ -347,7 +355,7 @@ class DaxianHand(base.Hand):
         self._actuator_force_sensors = tuple(actuator_force_sensors)
 
         fingertip_touch_sensors = []
-        for tip_name in consts.FINGERTIP_BODIES:
+        for tip_name in self._c.FINGERTIP_BODIES:
             tip_elem = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + tip_name
             )
@@ -378,9 +386,17 @@ class DaxianHand(base.Hand):
         the same servo gains but bounds the speed to something a hand can actually move
         at.
         """
-        inertial = self.root_body.inertial or self.root_body.add("inertial", pos=(0, 0, 0))
-        inertial.mass = consts.FOREARM_MASS
-        inertial.diaginertia = (consts.FOREARM_INERTIA,) * 3
+        inertial = self.root_body.inertial
+        if inertial is None:
+            inertial = self.root_body.add(
+                "inertial",
+                pos=(0, 0, 0),
+                mass=self._c.FOREARM_MASS,
+                diaginertia=(self._c.FOREARM_INERTIA,) * 3,
+            )
+            return
+        inertial.mass = self._c.FOREARM_MASS
+        inertial.diaginertia = (self._c.FOREARM_INERTIA,) * 3
         inertial.fullinertia = None
 
     def _add_dofs(self) -> None:
@@ -401,9 +417,9 @@ class DaxianHand(base.Hand):
             joint_range = dof.joint_range
             if dof_name == "forearm_roll":
                 joint_range = (
-                    consts.LEFT_FOREARM_ROLL_RANGE
+                    self._c.LEFT_FOREARM_ROLL_RANGE
                     if self._hand_side == base.HandSide.LEFT
-                    else consts.RIGHT_FOREARM_ROLL_RANGE
+                    else self._c.RIGHT_FOREARM_ROLL_RANGE
                 )
             joint = self.root_body.add(
                 "joint",
@@ -449,7 +465,7 @@ class DaxianHand(base.Hand):
     def fingertip_bodies(self) -> Sequence[types.MjcfElement]:
         return tuple(
             mjcf_utils.safe_find(self._mjcf_root, "body", self._prefix + name)
-            for name in consts.FINGERTIP_BODIES
+            for name in self._c.FINGERTIP_BODIES
         )
 
     @property
@@ -491,7 +507,7 @@ class DaxianHand(base.Hand):
         """Hold four-finger PIP/DIP and thumb MCP/PIP at rest when reduced."""
         if not self._reduce_action_space:
             return
-        rest = consts.rest_ctrl()
+        rest = self._c.rest_ctrl()
         for actuator in self._task_actuators:
             key = self._joint_key(actuator.name)
             if key not in self._pinned_joints:
@@ -500,7 +516,7 @@ class DaxianHand(base.Hand):
 
     def initialize_episode(self, physics, random_state) -> None:
         del random_state
-        rest = consts.rest_ctrl()
+        rest = self._c.rest_ctrl()
         for joint in self.joints:
             for name, val in rest.items():
                 if joint.name.endswith(name):

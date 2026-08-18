@@ -9,7 +9,19 @@ import numpy as np
 from dm_env import specs
 from dm_env_wrappers import EnvironmentWrapper
 
-from robopianist.models.hands import daxian_hand_constants as consts
+from robopianist.models.hands import daxian_hand_constants as _daxian_v3_consts
+
+
+def _unwrap_hand_consts(environment):
+    cur = environment
+    seen = set()
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        task = getattr(cur, "task", None)
+        if task is not None and hasattr(task, "hand_consts"):
+            return task.hand_consts
+        cur = getattr(cur, "environment", None) or getattr(cur, "_environment", None)
+    return _daxian_v3_consts
 
 
 def _action_names(spec: specs.BoundedArray) -> list[str]:
@@ -22,7 +34,7 @@ def _action_names(spec: specs.BoundedArray) -> list[str]:
     return names
 
 
-def _rest_for_name(name: str, orig_lo: float) -> float | None:
+def _rest_for_name(name: str, orig_lo: float, consts) -> float | None:
     rest = consts.rest_ctrl()
     for joint_name, val in rest.items():
         if not name.endswith(joint_name):
@@ -63,6 +75,7 @@ class PipRestAtZeroWrapper(EnvironmentWrapper):
         joint_suffixes: Sequence[str] = ("MCP_joint", "forearm_roll"),
     ) -> None:
         super().__init__(environment)
+        consts = _unwrap_hand_consts(environment)
         inner = environment.action_spec()
         names = _action_names(inner)
         idx = []
@@ -73,7 +86,7 @@ class PipRestAtZeroWrapper(EnvironmentWrapper):
         for i, name in enumerate(names):
             lo = float(inner.minimum[i])
             hi = float(inner.maximum[i])
-            rest_val = _rest_for_name(name, lo)
+            rest_val = _rest_for_name(name, lo, consts)
             if rest_val is None and not any(name.endswith(s) for s in joint_suffixes):
                 continue
             if rest_val is None:

@@ -21,8 +21,9 @@ import numpy as np
 from dm_control import composer
 from mujoco_utils import composer_utils, physics_utils
 
-from robopianist.models.hands import HandSide, daxian_hand, shadow_hand
+from robopianist.models.hands import HandSide, daxian_hand, daxian_v2_hand, shadow_hand
 from robopianist.models.hands import daxian_hand_constants as daxian_consts
+from robopianist.models.hands import daxian_v2_hand_constants as daxian_v2_consts
 from robopianist.models.hands import shadow_hand_constants as shadow_consts
 from robopianist.models.piano import piano
 
@@ -58,24 +59,28 @@ def _axis_angle_quat(axis, angle_rad: float) -> np.ndarray:
     return out
 
 
-def _hand_quat(spin_deg: float) -> np.ndarray:
+def _hand_quat(consts_mod, spin_deg: float) -> np.ndarray:
     """Base Euler, then spin about the forearm local +Z (preview blue axis).
 
     PALM_PITCH_UP_DEG is a world-+Y rotation applied after that, so from the
     player's view the finger edge of the palm sits above the wrist.
     """
-    q_base = _euler_rpy_deg_to_quat(daxian_consts.HAND_BASE_RPY_DEG)
+    q_base = _euler_rpy_deg_to_quat(consts_mod.HAND_BASE_RPY_DEG)
     q_spin = _axis_angle_quat((0.0, 0.0, 1.0), np.radians(spin_deg))
     q = _quat_mul(q_base, q_spin)
-    pitch = float(daxian_consts.PALM_PITCH_UP_DEG)
+    pitch = float(consts_mod.PALM_PITCH_UP_DEG)
     if pitch:
         q_pitch = _axis_angle_quat((0.0, 1.0, 0.0), np.radians(pitch))
         q = _quat_mul(q_pitch, q)
     return q
 
 
-_DAXIAN_LEFT_HAND_QUATERNION = _hand_quat(daxian_consts.LEFT_FOREARM_Z_SPIN_DEG)
-_DAXIAN_RIGHT_HAND_QUATERNION = _hand_quat(daxian_consts.RIGHT_FOREARM_Z_SPIN_DEG)
+_DAXIAN_LEFT_HAND_QUATERNION = _hand_quat(
+    daxian_consts, daxian_consts.LEFT_FOREARM_Z_SPIN_DEG
+)
+_DAXIAN_RIGHT_HAND_QUATERNION = _hand_quat(
+    daxian_consts, daxian_consts.RIGHT_FOREARM_Z_SPIN_DEG
+)
 
 _ATTACHMENT_YAW = 0  # Degrees.
 
@@ -167,7 +172,21 @@ class PianoTask(PianoOnlyTask):
             right_pos = _SHADOW_RIGHT_HAND_POSITION
             left_quat = _SHADOW_HAND_QUATERNION
             right_quat = _SHADOW_HAND_QUATERNION
-        elif name.startswith("daxian"):
+        elif name in ("daxian_v2", "daxian2"):
+            self._robot = "daxian_v2"
+            self.hand_consts = daxian_v2_consts
+            hand_cls = daxian_v2_hand.DaxianV2Hand
+            if forearm_dofs is None:
+                forearm_dofs = daxian_hand._DEFAULT_FOREARM_DOFS
+            left_pos = daxian_v2_consts.LEFT_HAND_POSITION
+            right_pos = daxian_v2_consts.RIGHT_HAND_POSITION
+            left_quat = _hand_quat(
+                daxian_v2_consts, daxian_v2_consts.LEFT_FOREARM_Z_SPIN_DEG
+            )
+            right_quat = _hand_quat(
+                daxian_v2_consts, daxian_v2_consts.RIGHT_FOREARM_Z_SPIN_DEG
+            )
+        elif name in ("daxian", "daxian_v3") or name.startswith("daxian"):
             self._robot = "daxian"
             self.hand_consts = daxian_consts
             hand_cls = daxian_hand.DaxianHand
@@ -179,7 +198,7 @@ class PianoTask(PianoOnlyTask):
             right_quat = _DAXIAN_RIGHT_HAND_QUATERNION
         else:
             raise ValueError(
-                f"Unknown robot {robot!r}. Use 'daxian' or 'shadow'."
+                f"Unknown robot {robot!r}. Use 'daxian', 'daxian_v2', or 'shadow'."
             )
 
         self._unlock_four_finger_pip_dip = bool(unlock_four_finger_pip_dip)
@@ -244,7 +263,7 @@ class PianoTask(PianoOnlyTask):
             reduced_action_space=reduced_action_space,
             forearm_dofs=forearm_dofs,
         )
-        if self._robot == "daxian":
+        if str(self._robot).startswith("daxian"):
             hand_init["unlock_four_finger_pip_dip"] = self._unlock_four_finger_pip_dip
         hand = hand_cls(**hand_init)
         hand.root_body.pos = position

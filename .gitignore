@@ -22,6 +22,10 @@ eval_daxian_unlock_pip_dip/videos/
 eval_daxian_unlock_pip_dip/checkpoints/
 eval_daxian_unlock_pip_dip/metrics/
 eval_daxian_unlock_pip_dip/swanlog/
+eval_daxian_v2/videos/
+eval_daxian_v2/checkpoints/
+eval_daxian_v2/metrics/
+eval_daxian_v2/swanlog/
 *.pkl
 *.mp4
 *.mp3

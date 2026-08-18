@@ -69,7 +69,8 @@ class Args:
     camera_id: Optional[str | int] = "piano/back"
     action_reward_observation: bool = False
     # If set, videos / checkpoints / metric pkls are written here instead of
-    # ``root_dir/<run_name>``. ``run_daxian.sh`` points this at ``eval_daxian``.
+    # ``root_dir/<run_name>``. ``run_daxian.sh`` → ``eval_daxian`` (V3);
+    # ``run_daxian_v2.sh`` → ``eval_daxian_v2``.
     artifact_dir: str = ""
     agent_config: sac.SACConfig = sac.SACConfig()
 
