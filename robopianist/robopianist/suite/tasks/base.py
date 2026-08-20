@@ -60,18 +60,26 @@ def _axis_angle_quat(axis, angle_rad: float) -> np.ndarray:
 
 
 def _hand_quat(consts_mod, spin_deg: float) -> np.ndarray:
-    """Base Euler, then spin about the forearm local +Z (preview blue axis).
+    """Mount orientation: Euler Y pitch, Z-spin, palm pitch_up, then world roll/yaw.
 
-    PALM_PITCH_UP_DEG is a world-+Y rotation applied after that, so from the
-    player's view the finger edge of the palm sits above the wrist.
+    ``HAND_BASE_RPY_DEG`` of ``(0, -90, 0)`` is unchanged. Extra rpy roll/yaw are
+    applied about world +X / +Z after that so they stay independent at pitch
+    -90° (Euler gimbal lock would otherwise make roll == yaw).
+    PALM_PITCH_UP_DEG is a world-+Y rotation, so from the player's view the
+    finger edge of the palm sits above the wrist.
     """
-    q_base = _euler_rpy_deg_to_quat(consts_mod.HAND_BASE_RPY_DEG)
+    rx, ry, rz = np.radians(consts_mod.HAND_BASE_RPY_DEG)
+    q_base = _euler_rpy_deg_to_quat((0.0, float(np.degrees(ry)), 0.0))
     q_spin = _axis_angle_quat((0.0, 0.0, 1.0), np.radians(spin_deg))
     q = _quat_mul(q_base, q_spin)
     pitch = float(consts_mod.PALM_PITCH_UP_DEG)
     if pitch:
         q_pitch = _axis_angle_quat((0.0, 1.0, 0.0), np.radians(pitch))
         q = _quat_mul(q_pitch, q)
+    if abs(rx) > 1e-12:
+        q = _quat_mul(_axis_angle_quat((1.0, 0.0, 0.0), rx), q)
+    if abs(rz) > 1e-12:
+        q = _quat_mul(_axis_angle_quat((0.0, 0.0, 1.0), rz), q)
     return q
 
 
@@ -177,7 +185,11 @@ class PianoTask(PianoOnlyTask):
             self.hand_consts = daxian_v2_consts
             hand_cls = daxian_v2_hand.DaxianV2Hand
             if forearm_dofs is None:
-                forearm_dofs = daxian_hand._DEFAULT_FOREARM_DOFS
+                forearm_dofs = getattr(
+                    daxian_v2_consts,
+                    "DEFAULT_FOREARM_DOFS",
+                    daxian_hand._DEFAULT_FOREARM_DOFS,
+                )
             left_pos = daxian_v2_consts.LEFT_HAND_POSITION
             right_pos = daxian_v2_consts.RIGHT_HAND_POSITION
             left_quat = _hand_quat(

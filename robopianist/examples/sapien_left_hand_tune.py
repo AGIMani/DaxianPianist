@@ -100,17 +100,41 @@ def _q_wxyz(q) -> list[float]:
 
 
 def compose_attach_quat(
-    rpy_deg, spin_deg: float, pitch_deg: float, roll_rad: float
+    rpy_deg,
+    spin_deg: float,
+    pitch_deg: float,
+    roll_rad: float,
+    yaw_rad: float = 0.0,
+    world_roll_yaw: bool = False,
 ) -> list[float]:
-    """Same composition as suite/tasks/base.py.
+    """Same composition as suite/tasks/base.py plus optional policy roll/yaw.
 
-    ``roll_rad`` is extra Euler X (rpy roll), not a world-X rotation after pitch.
-    +wrist_roll has the same effect as adding the same angle to rpy roll.
+    Default (V3): ``roll_rad`` is extra Euler X. At attach pitch = -90° that
+    axis *is* world Z, so Euler yaw and wrist roll look the same (gimbal lock).
+
+    ``world_roll_yaw=True`` (V2): mount uses Euler Y (the -90° pitch) + Z-spin
+    + palm pitch_up, then independent world axes so the sliders differ:
+      rpy_roll + forearm_roll → world +X (pronation / thumb-pinky)
+      rpy_yaw  + forearm_yaw  → world +Z (turn in the key plane)
     """
     rx, ry, rz = np.radians(rpy_deg)
+    if world_roll_yaw:
+        q = euler2quat(0.0, ry, 0.0, axes="sxyz")
+        q = qmult(q, axangle2quat((0.0, 0.0, 1.0), math.radians(spin_deg)))
+        if pitch_deg:
+            q = qmult(axangle2quat((0.0, 1.0, 0.0), math.radians(pitch_deg)), q)
+        roll_total = rx + float(roll_rad)
+        if abs(roll_total) > 1e-12:
+            q = qmult(axangle2quat((1.0, 0.0, 0.0), roll_total), q)
+        yaw_total = rz + float(yaw_rad)
+        if abs(yaw_total) > 1e-12:
+            q = qmult(axangle2quat((0.0, 0.0, 1.0), yaw_total), q)
+        return _q_wxyz(q)
     rx = rx + float(roll_rad)
     q = euler2quat(rx, ry, rz, axes="sxyz")
     q = qmult(q, axangle2quat((0.0, 0.0, 1.0), math.radians(spin_deg)))
+    if yaw_rad:
+        q = qmult(axangle2quat((0.0, 0.0, 1.0), float(yaw_rad)), q)
     if pitch_deg:
         q = qmult(axangle2quat((0.0, 1.0, 0.0), math.radians(pitch_deg)), q)
     return _q_wxyz(q)

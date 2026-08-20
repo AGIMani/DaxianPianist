@@ -7,7 +7,9 @@
 
 详细技术汇报（奖励项、SAC 更新公式、动作空间、训练与评测）：[docs/technical_report.md](docs/technical_report.md)
 
-Docker 训练（GPU 容器、依赖安装、`run_daxian_v2.sh` 等入口）：[docs/docker_train.md](docs/docker_train.md)
+Docker 训练（GPU 容器、`run_daxian_v2.sh` 等入口）：[docs/docker_train.md](docs/docker_train.md)
+
+SAPIEN 达显 V2 左手预览：`robopianist/examples/sapien_left_hand_v2_tune.py`（V3 预览仍是 `sapien_left_hand_tune.py`）。
 
 训练产物（checkpoint、视频、SwanLab 日志）已被 `.gitignore` 排除，**不要**用 `git add -f` 强行加入。
 

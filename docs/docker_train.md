@@ -63,6 +63,12 @@ pip install -r /workspace/robopianist-rl/requirements.txt
 
 `robopianist` 必须 editable install 本仓库路径，这样 `--robot daxian` / `daxian_v2` 才可用。
 
+`jax[cuda12]` 的 cuSPARSE 在 pip 的 `nvidia/*/lib` 里。NGC 镜像会把 `LD_LIBRARY_PATH` 设成 `/usr/local/cuda/lib64`，JAX 插件会找不到 cuSPARSE 并**静默退回 CPU**。训练脚本会 `source docker/jax_cuda_libs.sh`。手动跑 `python` 时先：
+
+```bash
+source /workspace/docker/jax_cuda_libs.sh
+```
+
 确认 GPU：
 
 ```bash
@@ -82,7 +88,7 @@ cd /workspace/robopianist-rl
 
 | 实验 | 命令 | `--robot` | 产物目录 |
 | --- | --- | --- | --- |
-| 达显 V2（当前主推） | `bash run_daxian_v2.sh` | `daxian_v2` | `eval_daxian_v2/` |
+| 达显 V2（当前主推） | `bash run_daxian_v2.sh` | `daxian_v2` | `eval_daxian_v2_base/`（见 `docs/daxian_v2.md`） |
 | 达显 V3，锁定 PIP/DIP | `bash run_daxian.sh` | `daxian` | `eval_daxian/` |
 | 达显 V3，解锁四指 PIP/DIP | `bash run_daxian_unlock_pip_dip.sh` | `daxian` | `eval_daxian_unlock_pip_dip/` |
 | Shadow 手 | `bash run.sh` | `shadow` | `/tmp/robopianist/rl/`（容器内，建议改 `--root-dir`） |

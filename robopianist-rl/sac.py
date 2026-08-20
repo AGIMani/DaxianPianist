@@ -267,11 +267,23 @@ class SAC(struct.PyTreeNode):
         return new_agent, {**actor_info, **critic_info, **temp_info}
 
     def sample_actions(self, observations: np.ndarray) -> tuple["SAC", np.ndarray]:
+        obs = jnp.asarray(observations, dtype=jnp.float32)
+        squeeze = obs.ndim == 1
+        if squeeze:
+            obs = obs[None, ...]
         actions, new_rng = _sample_actions(
-            self.rng, self.actor.apply_fn, self.actor.params, observations
+            self.rng, self.actor.apply_fn, self.actor.params, obs
         )
-        return self.replace(rng=new_rng), np.asarray(actions)
+        actions_np = np.asarray(actions)
+        if squeeze:
+            actions_np = actions_np[0]
+        return self.replace(rng=new_rng), actions_np
 
     def eval_actions(self, observations: np.ndarray) -> np.ndarray:
-        actions = _eval_actions(self.actor.apply_fn, self.actor.params, observations)
-        return np.asarray(actions)
+        obs = jnp.asarray(observations, dtype=jnp.float32)
+        squeeze = obs.ndim == 1
+        if squeeze:
+            obs = obs[None, ...]
+        actions = _eval_actions(self.actor.apply_fn, self.actor.params, obs)
+        actions_np = np.asarray(actions)
+        return actions_np[0] if squeeze else actions_np

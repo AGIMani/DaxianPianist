@@ -1,6 +1,12 @@
 from typing import NamedTuple, Optional
+
 import numpy as np
 import dm_env
+
+try:
+    import jax.numpy as jnp
+except ImportError:  # pragma: no cover
+    jnp = None
 
 
 class Transition(NamedTuple):
@@ -18,16 +24,18 @@ class Buffer:
         action_dim: int,
         max_size: int,
         batch_size: int,
+        on_gpu: bool = False,
     ) -> None:
         self._max_size = max_size
         self._batch_size = batch_size
+        self._on_gpu = bool(on_gpu) and jnp is not None
+        zeros = jnp.zeros if self._on_gpu else np.zeros
 
-        # Storage.
-        self._states = np.zeros((max_size, state_dim), dtype=np.float32)
-        self._actions = np.zeros((max_size, action_dim), dtype=np.float32)
-        self._next_states = np.zeros((max_size, state_dim), dtype=np.float32)
-        self._rewards = np.zeros((max_size), dtype=np.float32)
-        self._discounts = np.zeros((max_size), dtype=np.float32)
+        self._states = zeros((max_size, state_dim), dtype=np.float32)
+        self._actions = zeros((max_size, action_dim), dtype=np.float32)
+        self._next_states = zeros((max_size, state_dim), dtype=np.float32)
+        self._rewards = zeros((max_size,), dtype=np.float32)
+        self._discounts = zeros((max_size,), dtype=np.float32)
 
         self._ptr: int = 0
         self._size: int = 0
@@ -45,23 +53,82 @@ class Buffer:
         self._latest = timestep
 
         if action is not None:
-            self._states[self._ptr] = self._prev.observation  # type: ignore
-            self._actions[self._ptr] = action
-            self._next_states[self._ptr] = self._latest.observation
-            self._rewards[self._ptr] = self._latest.reward
-            self._discounts[self._ptr] = self._latest.discount
+            self.insert_batch(
+                np.asarray(self._prev.observation, dtype=np.float32)[None],
+                np.asarray(action, dtype=np.float32)[None],
+                np.asarray([self._latest.reward], dtype=np.float32),
+                np.asarray([self._latest.discount], dtype=np.float32),
+                np.asarray(self._latest.observation, dtype=np.float32)[None],
+            )
 
-            self._ptr = (self._ptr + 1) % self._max_size
-            self._size = min(self._size + 1, self._max_size)
+    def insert_batch(
+        self,
+        states: np.ndarray,
+        actions: np.ndarray,
+        rewards: np.ndarray,
+        discounts: np.ndarray,
+        next_states: np.ndarray,
+    ) -> None:
+        n = int(states.shape[0])
+        if n == 0:
+            return
+        end = self._ptr + n
+        if end <= self._max_size:
+            self._write_slice(slice(self._ptr, end), states, actions, rewards, discounts, next_states)
+        else:
+            first = self._max_size - self._ptr
+            self._write_slice(
+                slice(self._ptr, self._max_size),
+                states[:first],
+                actions[:first],
+                rewards[:first],
+                discounts[:first],
+                next_states[:first],
+            )
+            self._write_slice(
+                slice(0, n - first),
+                states[first:],
+                actions[first:],
+                rewards[first:],
+                discounts[first:],
+                next_states[first:],
+            )
+        self._ptr = end % self._max_size
+        self._size = min(self._size + n, self._max_size)
+
+    def _write_slice(self, slc: slice, states, actions, rewards, discounts, next_states) -> None:
+        if self._on_gpu:
+            self._states = self._states.at[slc].set(jnp.asarray(states, dtype=jnp.float32))
+            self._actions = self._actions.at[slc].set(jnp.asarray(actions, dtype=jnp.float32))
+            self._rewards = self._rewards.at[slc].set(jnp.asarray(rewards, dtype=jnp.float32))
+            self._discounts = self._discounts.at[slc].set(jnp.asarray(discounts, dtype=jnp.float32))
+            self._next_states = self._next_states.at[slc].set(
+                jnp.asarray(next_states, dtype=jnp.float32)
+            )
+        else:
+            self._states[slc] = states
+            self._actions[slc] = actions
+            self._rewards[slc] = rewards
+            self._discounts[slc] = discounts
+            self._next_states[slc] = next_states
 
     def sample(self) -> Transition:
-        self._ind = np.random.randint(0, self._size, size=self._batch_size)
+        ind = np.random.randint(0, self._size, size=self._batch_size)
+        if self._on_gpu:
+            ind_j = jnp.asarray(ind)
+            return Transition(
+                state=self._states[ind_j],
+                action=self._actions[ind_j],
+                reward=self._rewards[ind_j],
+                discount=self._discounts[ind_j],
+                next_state=self._next_states[ind_j],
+            )
         return Transition(
-            state=self._states[self._ind],
-            action=self._actions[self._ind],
-            reward=self._rewards[self._ind],
-            discount=self._discounts[self._ind],
-            next_state=self._next_states[self._ind],
+            state=self._states[ind],
+            action=self._actions[ind],
+            reward=self._rewards[ind],
+            discount=self._discounts[ind],
+            next_state=self._next_states[ind],
         )
 
     def is_ready(self) -> bool:

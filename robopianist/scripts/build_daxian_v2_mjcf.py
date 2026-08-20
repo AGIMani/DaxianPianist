@@ -10,6 +10,7 @@ Writes:
 from __future__ import annotations
 
 import shutil
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -46,12 +47,14 @@ FINGER_JOINTS = (
     "ring_MCP_joint",
     "ring_PIP_joint",
     "ring_DIP_joint",
-    "pinky_rota_joint",
     "pinky_swing_joint",
     "pinky_MCP_joint",
     "pinky_PIP_joint",
     "pinky_DIP_joint",
 )
+
+# Hinges dropped after compile so the child body is welded at q=0.
+WELD_JOINTS = ("pinky_rota_joint",)
 
 TIP_BODIES = (
     "thumb_PIP_link",
@@ -107,6 +110,17 @@ def _convert_meshes() -> None:
             continue
         print(f"convert {src.name}")
         _stl_to_obj(src, dst)
+
+
+def _overlay_piano_tips() -> None:
+    """Replace distal OBJs with the authored piano-tip capsule meshes."""
+    tip_dir = ASSETS / "piano_tip"
+    if not tip_dir.is_dir():
+        return
+    for src in sorted(tip_dir.glob("*_piano_tip.obj")):
+        dst = ASSETS / src.name.replace("_piano_tip.obj", ".obj")
+        shutil.copy2(src, dst)
+        print(f"overlay piano tip {dst.name}")
 
 
 def _urdf_with_local_meshes(urdf: Path) -> Path:
@@ -165,7 +179,7 @@ def _postprocess(raw_xml: Path, prefix: str, side: str) -> tuple[str, dict[str, 
     if option is None:
         option = ET.Element("option")
         root.insert(1, option)
-    option.set("impratio", "10")
+    option.set("impratio", "20")
     option.set("timestep", "0.005")
 
     default = root.find("default")
@@ -179,8 +193,8 @@ def _postprocess(raw_xml: Path, prefix: str, side: str) -> tuple[str, dict[str, 
             "geom",
             friction="1 0.005 0.001",
             condim="3",
-            solimp="0.99 0.99 0.01",
-            solref="0.01 1",
+            solimp="0.99 0.995 0.001",
+            solref="0.004 1",
         )
         ET.SubElement(default, "position", kp="20.0")
 
@@ -230,6 +244,12 @@ def _postprocess(raw_xml: Path, prefix: str, side: str) -> tuple[str, dict[str, 
                 child.tag == "joint" and child.get("type") == "free"
             ):
                 body.remove(child)
+
+    for body in worldbody.iter("body"):
+        for joint in list(body.findall("joint")):
+            name = joint.get("name") or ""
+            if any(name.endswith(key) for key in WELD_JOINTS):
+                body.remove(joint)
 
     # URDF compile dumps root link geoms onto worldbody. Wrap them in a
     # forearm body so DaxianHand can attach the same way as V3.
@@ -332,8 +352,7 @@ def _tip_offsets(xml_path: Path, prefix: str) -> dict[str, tuple[float, float, f
                 continue
             if int(model.geom_type[geom_id]) != int(mujoco.mjtGeom.mjGEOM_MESH):
                 continue
-            if int(model.geom_contype[geom_id]) == 0:
-                continue
+            # Tip collision is a capsule; AABB comes from the visual mesh.
             mesh_id = int(model.geom_dataid[geom_id])
             vertadr = int(model.mesh_vertadr[mesh_id])
             vertnum = int(model.mesh_vertnum[mesh_id])
@@ -360,6 +379,7 @@ def main() -> None:
         raise FileNotFoundError(f"V2 URDF dir missing: {URDF_DIR}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     _convert_meshes()
+    _overlay_piano_tips()
 
     print("FINGERTIP_COLLISION_POS (AABB centres; paste into daxian_v2_hand_constants.py)")
     print("{")

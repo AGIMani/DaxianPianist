@@ -1,0 +1,44 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: daxian-pianist:dev
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    shm_size: 8gb
+    # Cursor needs a passwd user and root for server install / port forward.
+    # HOST_UID in .env is only used to create that passwd entry.
+    user: "0:0"
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - .:/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ${HOST_XAUTHORITY:-/home/houjue/.Xauthority}:/root/.Xauthority:ro
+    environment:
+      HOME: /root
+      HOST_UID: ${HOST_UID:-0}
+      HOST_GID: ${HOST_GID:-0}
+      # xrdp XFCE on this machine is :10. Do not use ${DISPLAY}: SSH sessions
+      # often have it empty and would pass an empty value into the container.
+      DISPLAY: ${SAPIEN_DISPLAY:-:10}
+      XAUTHORITY: /root/.Xauthority
+      QT_X11_NO_MITSHM: "1"
+      VK_ICD_FILENAMES: /workspace/docker/nvidia_icd.json
+      MUJOCO_GL: egl
+      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
+      CUDA_VISIBLE_DEVICES: "0"
+      MUJOCO_EGL_DEVICE_ID: "0"
+      PYTHONUNBUFFERED: "1"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics,display
+      SWANLAB_API_KEY: ${SWANLAB_API_KEY:-}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["sleep", "infinity"]

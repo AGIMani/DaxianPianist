@@ -47,11 +47,17 @@ def _rest_for_name(name: str, orig_lo: float, consts) -> float | None:
         ):
             return float(orig_lo)
         return float(val)
-    # Four-finger MCP is policy-driven and not in rest_ctrl(). 0 = URDF straight
-    # (ctrlrange low), not the [0, 1.57] midpoint. Skip thumb_MCP (pinned).
+    # Four-finger MCP is policy-driven and not in rest_ctrl() as a pinned
+    # joint. 0 = URDF straight (ctrlrange low), not the [0, 1.57] midpoint.
+    # V2 thumb_MCP is policy-driven too; if it is in rest_ctrl() that value wins.
     if name.endswith("MCP_joint") and "thumb_" not in name:
         return float(orig_lo)
-    if name.endswith("forearm_roll"):
+    if (
+        name.endswith("forearm_roll")
+        or name.endswith("forearm_ty")
+        or name.endswith("forearm_tz")
+        or name.endswith("forearm_yaw")
+    ):
         return 0.0
     return None
 
@@ -59,12 +65,16 @@ def _rest_for_name(name: str, orig_lo: float, consts) -> float | None:
 class PipRestAtZeroWrapper(EnvironmentWrapper):
     """Advertise bounds symmetric about rest so CanonicalSpec 0 is rest.
 
-    Four-finger MCP ctrlrange is ``[0, 1.57]``. Without this, policy 0 became
-    ~0.785 rad (already a press). Unlocked thumb ``rota`` / ``rotaback`` use
-    ``rest_ctrl()`` the same way. ``forearm_roll`` rest is 0 (no extra Euler X);
-    left is ``[0, 0.3]``, right the Y-mirror ``[-0.3, 0]``.
+    Four-finger MCP ctrlrange is ``[0, 0.6]`` on V2 (``[0, 1.57]`` on V3).
+    Without this, policy 0 became ~mid-range (already a press). Unlocked thumb
+    ``rota`` / ``rotaback`` use ``rest_ctrl()`` the same way. ``forearm_roll``
+    rest is 0 (no extra Euler X); left is ``[-0.5, 0]``, right the Y-mirror
+    ``[0, 0.5]``. ``forearm_yaw`` rest is 0 (no yaw); both hands ``[-0.6, 0]``
+    because the yaw axis is already reflected (``+ctrl`` = outwards).
+    ``forearm_ty`` rest is 0 (attach pos_z / world +Z). ``forearm_tz`` rest is 0
+    (attach pos_x / world +X). Default V2 training does not command ``forearm_roll``.
 
-    * policy 0 → rest (MCP: straight 0; roll: 0; thumb: ``THUMB_REST_CTRL``)
+    * policy 0 → rest (MCP: straight 0; yaw/ty/tz: 0; thumb: ``THUMB_REST_CTRL``)
     * policy +1 → original maximum (clipped if rest sits at the high end)
     * policy -1 → advertised minimum, clipped to the physical range
     """
@@ -72,7 +82,13 @@ class PipRestAtZeroWrapper(EnvironmentWrapper):
     def __init__(
         self,
         environment: dm_env.Environment,
-        joint_suffixes: Sequence[str] = ("MCP_joint", "forearm_roll"),
+        joint_suffixes: Sequence[str] = (
+            "MCP_joint",
+            "forearm_roll",
+            "forearm_yaw",
+            "forearm_tz",
+            "forearm_ty",
+        ),
     ) -> None:
         super().__init__(environment)
         consts = _unwrap_hand_consts(environment)
@@ -99,8 +115,8 @@ class PipRestAtZeroWrapper(EnvironmentWrapper):
             orig_lo.append(lo)
             orig_hi.append(hi)
             # Shift the far side of rest so CanonicalSpec 0 is rest. If rest is
-            # already the high bound (right forearm_roll), expand max instead of
-            # collapsing the advertised range to a point.
+            # already the high bound (left forearm_roll, both forearm_yaw),
+            # expand max instead of collapsing the advertised range to a point.
             adv_lo = 2.0 * rest_val - hi
             adv_hi = hi
             if adv_lo >= adv_hi - 1e-9:

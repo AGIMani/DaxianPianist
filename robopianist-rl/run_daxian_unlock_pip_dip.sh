@@ -3,6 +3,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Prefer this workspace's robopianist (supports --robot shadow|daxian).
 export PYTHONPATH="${SCRIPT_DIR}/../robopianist${PYTHONPATH:+:$PYTHONPATH}"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../docker/jax_cuda_libs.sh"
 
 # Comparison vs run_daxian.sh: same reduced space, but four-finger PIP/DIP are
 # unlocked (policy-controlled). Thumb MCP/PIP stay pinned. Writes to a separate

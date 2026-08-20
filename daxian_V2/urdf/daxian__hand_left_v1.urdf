@@ -1067,7 +1067,7 @@
   </link>
   <joint
     name="left_hand_pinky_rota_joint"
-    type="revolute">
+    type="fixed">
     <origin
       xyz="0.0104222073054612 0.0201562875715191 0.0414407136400697"
       rpy="-0.201034298150097 0.00335598881251007 -0.000683905860218788" />
@@ -1075,13 +1075,6 @@
       link="base_link" />
     <child
       link="left_hand_pinky_rota_link" />
-    <axis
-      xyz="0 0 -1" />
-    <limit
-      lower="0"
-      upper="1.57"
-      effort="0.344"
-      velocity="6.28" />
   </joint>
   <link
     name="left_hand_pinky_swing_link">

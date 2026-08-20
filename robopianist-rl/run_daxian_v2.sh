@@ -3,9 +3,14 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Prefer this workspace's robopianist (supports --robot shadow|daxian|daxian_v2).
 export PYTHONPATH="${SCRIPT_DIR}/../robopianist${PYTHONPATH:+:$PYTHONPATH}"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../docker/jax_cuda_libs.sh"
 
 # V2 only. Does not write eval_daxian/ (V3) or eval_daxian_unlock_pip_dip/.
-EVAL_DIR="${SCRIPT_DIR}/../eval_daxian_v2"
+# lookahead 20 = 1.0s buffer / 0.05s dt so the first note is visible at t=0.
+# Resume a killed run (same action space as the pickle):
+#   bash run_daxian_v2.sh --resume ../eval_daxian_v2/checkpoints/step_03200000.pkl
+EVAL_DIR="${SCRIPT_DIR}/../eval_daxian_v2_base"
 mkdir -p "${EVAL_DIR}/videos" "${EVAL_DIR}/checkpoints" "${EVAL_DIR}/metrics"
 
 MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false CUDA_VISIBLE_DEVICES=0 MUJOCO_EGL_DEVICE_ID=0 python train.py \
@@ -23,11 +28,13 @@ MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false CUDA_VISIBLE_DEVICES=0 MUJOCO_
     --initial-buffer-time 1.0 \
     --gravity-compensation \
     --reduced-action-space \
+    --forearm-dofs forearm_tx forearm_ty forearm_tz forearm_yaw \
     --control-timestep 0.05 \
-    --n-steps-lookahead 10 \
+    --n-steps-lookahead 20 \
     --environment-name "RoboPianist-debug-TwinkleTwinkleRousseau-v0" \
     --action-reward-observation \
-    --primitive-fingertip-collisions \
+    --eval-interval 10000 \
+    --video-interval 100000 \
     --eval-episodes 1 \
     --camera-id "piano/back" \
     --tqdm-bar \

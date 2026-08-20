@@ -1,0 +1,12 @@
+---
+description: Tsensei 达显手项目约定（命名、V2/V3）
+alwaysApply: true
+---
+
+# Tsensei / 达显
+
+- 公司是 **Tsensei**。对外和文档里写 Tsensei，不要改成别的公司名。
+- 灵巧手品牌写 **达显**，英文 **Daxian**。仓库路径仍用现有的 `daxian_*`，不要批量改名。
+- **V3**（`daxian_V3/`、`daxian_hand.py`）：带 `thumb_rota_block` / `rotaback` 的上一套手。SAPIEN 预览是 `examples/sapien_left_hand_tune.py`。
+- **V2**（`daxian_V2/`、`daxian_v2_hand.py`）：当前要预览/训练的达显手。拇指是 `rota` + `swing`，小指有 `pinky_rota`。SAPIEN 预览是 `examples/sapien_left_hand_v2_tune.py`。
+- 改安装位姿或 rest 角时：V2 只改 `daxian_v2_hand_constants.py`，不要写进 V3 的 `daxian_hand_constants.py`。

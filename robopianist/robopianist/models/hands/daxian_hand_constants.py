@@ -97,6 +97,8 @@ THUMB_PALM_EXCLUDE = (
     ("palm_link", "thumb_rota_block_link"),
     ("palm_link", "thumb_rotaback_link2"),
 )
+# V3 palm mesh does not rest-penetrate the fingers; leave collision on.
+PALM_VISUAL_ONLY_BODIES = ()
 # MJCF ctrlrange. Must contain THUMB_REST_CTRL; never clip rest to fit a
 # narrower box (the old rotaback clip (-0.40, 0.30) made rest unreachable).
 THUMB_ROTA_BLOCK_RANGE = (0.0, 1.279)
@@ -123,10 +125,14 @@ FINGER_REST_CTRL = {
     "pinky_DIP_joint": 0.9200,
 }
 
-# Extra Euler-X / rpy-roll on the attach pose. Left-only positive; right is the
-# Y-mirror. CanonicalSpec 0 is no extra roll (not the range midpoint).
-LEFT_FOREARM_ROLL_RANGE = (0.0, 0.3)
-RIGHT_FOREARM_ROLL_RANGE = (-0.3, 0.0)
+# Extra Euler-X / rpy-roll on the attach pose. CanonicalSpec 0 is no extra
+# roll (the 0 end of the range, not the midpoint). Right is the Y-mirror.
+LEFT_FOREARM_ROLL_RANGE = (-0.5, 0.0)
+RIGHT_FOREARM_ROLL_RANGE = (0.0, 0.5)
+# Same signed range on both hands: yaw axis is reflected, +ctrl = outwards.
+LEFT_FOREARM_YAW_RANGE = (-0.6, 0.0)
+RIGHT_FOREARM_YAW_RANGE = (-0.6, 0.0)
+FOREARM_YAW_RANGE = LEFT_FOREARM_YAW_RANGE
 
 
 def rest_ctrl() -> Dict[str, float]:

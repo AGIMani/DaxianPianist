@@ -2,9 +2,11 @@
 
 本文档根据当前仓库代码整理，用于内部汇报。覆盖仿真任务、达仙手动作空间、**奖励函数**、**SAC 算法**、训练协议与现有实验结果。实现以本仓库为准，不依赖口头约定。
 
+**达显 V2（当前训练/预览）** 的安装、33 维动作空间、PIP/DIP 门控和训练命令见 **`docs/daxian_v2.md`**。下文 §4 / §8 的 25 维数字是 **V3** 主实验，不要套到 V2。
+
 - 仿真与任务：`robopianist/`
 - 训练：`robopianist-rl/`（JAX / Flax SAC）
-- 达仙手 CAD/URDF：`daxian_V3/`
+- 达仙手 CAD/URDF：V2 `daxian_V2/`（当前）；V3 `daxian_V3/`
 - 远程仓库：<https://github.com/AGIMani/DaxianPianist>
 - 原论文：Zakka et al., *RoboPianist: A Benchmark for High-Dimensional Robot Control*, 2023
 
@@ -66,12 +68,14 @@ DaxianPianist 把 Google Research 的 RoboPianist 从 **Shadow Hand** 迁到 **�
 | 基座欧拉 | `(0, -90°, 0)`，再绕前臂 +Z 转 180° | 同基座，-180° |
 | 手掌上仰 | 绕世界 +Y 再转 22°，指尖侧高于腕部 | 同 |
 
-默认前臂自由度只有两个：
+默认前臂自由度：
 
 - `forearm_tx`：沿键盘左右平移（范围按钢琴宽度重写）
-- `forearm_roll`：附加滚转。左手 `[0, 0.3]` rad，右手 `[-0.3, 0]`。CanonicalSpec 的 0 表示**不加额外滚转**
+- `forearm_tz`：世界 +X（SAPIEN `pos_x`）。范围见 `FOREARM_TZ_RANGE`，负值伸进键盘；CanonicalSpec 的 0 表示**安装 x、不额外前后移**
+- `forearm_ty`：世界 +Z（SAPIEN `pos_z`）。范围见 `FOREARM_TY_RANGE`，负值压低手掌；CanonicalSpec 的 0 表示**安装 z、不额外升降**
+- `forearm_yaw`：绕世界 Z。左右手都是 `[-0.6, 0]`（轴已 reflect，`+ctrl` 向外；CanonicalSpec 的 0 表示**不偏航**）
 
-没有 `forearm_ty`（竖直）。下压力主要靠四指 MCP / swing，安装高度已经压低。
+默认训练不再命令 `forearm_roll`。下压力主要靠四指 MCP / swing，安装高度已经压低；`forearm_ty` 只做小范围高度微调。
 
 手指位置伺服力矩上限 `±2 N·m`；前臂平移 `±20 N`、滚转 `±5 N·m`。不加力矩上限时，未训练策略会用前臂顶穿琴键。
 

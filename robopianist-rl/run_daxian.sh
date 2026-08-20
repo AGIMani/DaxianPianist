@@ -3,6 +3,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Prefer this workspace's robopianist (supports --robot shadow|daxian).
 export PYTHONPATH="${SCRIPT_DIR}/../robopianist${PYTHONPATH:+:$PYTHONPATH}"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../docker/jax_cuda_libs.sh"
 
 EVAL_DIR="${SCRIPT_DIR}/../eval_daxian"
 mkdir -p "${EVAL_DIR}/videos" "${EVAL_DIR}/checkpoints" "${EVAL_DIR}/metrics"

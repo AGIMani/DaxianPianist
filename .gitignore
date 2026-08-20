@@ -26,6 +26,14 @@ eval_daxian_v2/videos/
 eval_daxian_v2/checkpoints/
 eval_daxian_v2/metrics/
 eval_daxian_v2/swanlog/
+eval_daxian_v2_unlock/videos/
+eval_daxian_v2_unlock/checkpoints/
+eval_daxian_v2_unlock/metrics/
+eval_daxian_v2_unlock/swanlog/
+eval_daxian_v2_unlock_ty/videos/
+eval_daxian_v2_unlock_ty/checkpoints/
+eval_daxian_v2_unlock_ty/metrics/
+eval_daxian_v2_unlock_ty/swanlog/
 *.pkl
 *.mp4
 *.mp3
@@ -41,3 +49,12 @@ robopianist/third_party/
 *.swp
 .idea/
 .vscode/
+
+# Local secrets / docker compose overrides (HOST_UID, SWANLAB_API_KEY)
+.env
+
+# Incoming CAD dumps
+A2_tip.zip
+
+# Pip --target install used by the SAPIEN sidecar (wheels, not source)
+.docker-python/

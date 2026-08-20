@@ -31,7 +31,12 @@ class Dof:
 # Axes below are expressed in the forearm body frame. After the 180° spin about
 # local +Z the forearm maps to the world as:
 #   +X -> -Z_world,  +Y -> -Y_world,  +Z -> -X_world
-# so a single axis per DOF gives both hands the same world-space behaviour, and
+# Palm pitch (PALM_PITCH_UP_DEG about world +Y) is applied after that, so a
+# naive local axis is no longer world-aligned. Slide DOFs therefore convert
+# world XYZ through `_local_axis_for_world` at build time:
+#   forearm_tx -> world +Y (along the keyboard)
+#   forearm_ty -> world +Z (vertical; negative lowers the palm onto the keys)
+#   forearm_tz -> world +X (toward the player; negative reaches into the keys)
 # `reflect` is only used where the two hands should genuinely move as mirror images.
 #
 # Every actuator carries a force limit. Without one the position servos behave as
@@ -48,7 +53,7 @@ _FOREARM_DOFS: Dict[str, Dof] = {
         joint_range=(-1, 1),
         force_limit=20.0,
     ),
-    # Vertical, world +Z. Negative lets the hand press down onto the keys.
+    # Vertical, world +Z after palm pitch. Negative lowers the palm onto the keys.
     "forearm_ty": Dof(
         joint_type="slide",
         axis=(-1, 0, 0),
@@ -56,7 +61,7 @@ _FOREARM_DOFS: Dict[str, Dof] = {
         joint_range=(-0.04, 0.06),
         force_limit=20.0,
     ),
-    # Depth: positive moves away from the player, deeper into the keyboard.
+    # Depth, world +X (toward the player). Negative reaches into the keyboard.
     "forearm_tz": Dof(
         joint_type="slide",
         axis=(0, 0, 1),
@@ -67,7 +72,7 @@ _FOREARM_DOFS: Dict[str, Dof] = {
     # Extra Euler-X / rpy-roll after the attach RPY. +ctrl = +rpy roll.
     # With ±180° Z-spin this is a hinge about forearm local -X (not world X
     # after pitch). No reflect: both hands share HAND_BASE_RPY_DEG.
-    # Per-hand range is applied in _add_dofs (left [0, 0.3], right [-0.3, 0]).
+    # Per-hand range is applied in _add_dofs (left [-0.5, 0], right [0, 0.5]).
     "forearm_roll": Dof(
         joint_type="hinge",
         axis=(-1, 0, 0),
@@ -85,12 +90,13 @@ _FOREARM_DOFS: Dict[str, Dof] = {
         force_limit=5.0,
     ),
     # Yaw about the vertical axis (world Z), mirrored so that positive turns each
-    # hand outwards, away from the other one.
+    # hand outwards. Per-hand range is applied in _add_dofs (both [-0.6, 0];
+    # axis reflect already Y-mirrors, so do not flip the right-hand numbers).
     "forearm_yaw": Dof(
         joint_type="hinge",
         axis=(-1, 0, 0),
         stiffness=300,
-        joint_range=(-0.25, 0.25),
+        joint_range=(-0.6, 0.0),
         force_limit=5.0,
         reflect=True,
     ),
@@ -141,6 +147,10 @@ class DaxianHand(base.Hand):
             if reduced_action_space
             else frozenset()
         )
+        # None = couple every four-finger (preview / no MIDI gate).
+        # frozenset = MIDI-assigned fingers only; others idle (PIP rest, DIP 0).
+        self._pip_dip_active_fingers: Optional[frozenset] = None
+        self._weld_joints()
 
         # Important: both calls must happen before parsing, and the mass must be set
         # before the DOFs so their critical damping is computed against it.
@@ -149,6 +159,7 @@ class DaxianHand(base.Hand):
         self._parse_mjcf_elements()
         self._add_mjcf_elements()
         self._configure_thumb()
+        self._disable_palm_collision()
 
         if primitive_fingertip_collisions:
             self._add_fingertip_collision_spheres()
@@ -166,6 +177,18 @@ class DaxianHand(base.Hand):
                 name = name[len(prefix) :]
                 break
         return name
+
+    def _weld_joints(self) -> None:
+        """Drop listed hinge joints so the child body is welded at q=0."""
+        keys = frozenset(getattr(self._c, "WELD_JOINTS", ()))
+        if not keys:
+            return
+        for joint in list(mjcf_utils.safe_find_all(self._mjcf_root, "joint")):
+            if self._joint_key(joint.name) in keys:
+                joint.remove()
+        for actuator in list(mjcf_utils.safe_find_all(self._mjcf_root, "actuator")):
+            if self._joint_key(actuator.name) in keys:
+                actuator.remove()
 
     def _is_policy_actuator(self, actuator) -> bool:
         key = self._joint_key(actuator.name)
@@ -193,6 +216,7 @@ class DaxianHand(base.Hand):
                 -self._c.FINGER_FORCE_LIMIT,
                 self._c.FINGER_FORCE_LIMIT,
             )
+        self._clamp_four_finger_mcp()
 
     def _configure_thumb(self) -> None:
         """Stop the thumb drive housing from tunnelling through the palm.
@@ -239,6 +263,33 @@ class DaxianHand(base.Hand):
             )
             actuator.ctrlrange = lo_hi
 
+    def _clamp_four_finger_mcp(self) -> None:
+        """Optionally shrink four-finger MCP joint/ctrl range (V2 training)."""
+        rng = getattr(self._c, "FOUR_FINGER_MCP_RANGE", None)
+        if rng is None:
+            return
+        lo, hi = float(rng[0]), float(rng[1])
+        for joint in self._joints:
+            key = self._joint_key(joint.name)
+            if key.endswith("MCP_joint") and not key.startswith("thumb_"):
+                joint.range = (lo, hi)
+        for actuator in (*self._actuators, *self._task_actuators):
+            key = self._joint_key(actuator.name)
+            if key.endswith("MCP_joint") and not key.startswith("thumb_"):
+                actuator.ctrlrange = (lo, hi)
+
+    def _disable_palm_collision(self) -> None:
+        """Drop rest-penetrating palm colliders so finger–finger contacts can block."""
+        for body_name in getattr(self._c, "PALM_VISUAL_ONLY_BODIES", ()):
+            body = mjcf_utils.safe_find(
+                self._mjcf_root, "body", self._prefix + body_name
+            )
+            for geom in list(body.geom):
+                if geom.contype == 0:
+                    continue
+                geom.contype = 0
+                geom.conaffinity = 0
+
     def _mirror_y(
         self, pos: Tuple[float, float, float]
     ) -> Tuple[float, float, float]:
@@ -250,40 +301,53 @@ class DaxianHand(base.Hand):
         return self._mirror_y(self._c.FINGERTIP_SITE_POS[tip_name])
 
     def _add_fingertip_collision_spheres(self) -> None:
-        """Replace each distal collision mesh with a palmar pad sphere."""
-        radius = self._c.FINGERTIP_COLLISION_RADIUS
+        """Replace each distal collision mesh with a palmar pad (sphere or capsule)."""
+        kind = getattr(self._c, "FINGERTIP_COLLISION_TYPE", "sphere")
+        if kind == "mesh":
+            # V2 piano-tip meshes already include the distal capsule.
+            return
+        radius = float(self._c.FINGERTIP_COLLISION_RADIUS)
+        half = float(getattr(self._c, "FINGERTIP_CAPSULE_HALF_LENGTH", 0.0))
+        solref = getattr(self._c, "FINGERTIP_SOLREF", None)
+        solimp = getattr(self._c, "FINGERTIP_SOLIMP", None)
         for tip_name, rgb in zip(self._c.FINGERTIP_BODIES, self._c.FINGERTIP_COLORS):
             body = mjcf_utils.safe_find(
                 self._mjcf_root, "body", self._prefix + tip_name
             )
             pos = self._mirror_y(self._c.FINGERTIP_COLLISION_POS[tip_name])
             rgba = rgb + (0.85,)
+            geom_kwargs = dict(
+                contype=1,
+                conaffinity=1,
+                group=0,
+                rgba=rgba,
+                pos=pos,
+            )
+            if kind == "capsule":
+                quat_fn = getattr(self._c, "fingertip_capsule_quat_mujoco", None)
+                geom_kwargs.update(
+                    type="capsule",
+                    size=(radius, half),
+                    quat=quat_fn(tip_name) if quat_fn else (1.0, 0.0, 0.0, 0.0),
+                )
+            else:
+                geom_kwargs.update(type="sphere", size=(radius, 0, 0))
+            if solref is not None:
+                geom_kwargs["solref"] = solref
+            if solimp is not None:
+                geom_kwargs["solimp"] = solimp
+
             converted = False
             for geom in list(body.geom):
                 # Visual-only mesh (contype=conaffinity=0). Keep it.
                 if geom.contype == 0 and geom.conaffinity == 0:
                     continue
-                geom.type = "sphere"
-                geom.size = (radius, 0, 0)
-                geom.pos = pos
                 geom.mesh = None
-                geom.contype = 1
-                geom.conaffinity = 1
-                geom.group = 0
-                geom.rgba = rgba
+                for key, val in geom_kwargs.items():
+                    setattr(geom, key, val)
                 converted = True
             if not converted:
-                body.add(
-                    "geom",
-                    name=tip_name + "_collision",
-                    type="sphere",
-                    size=(radius, 0, 0),
-                    pos=pos,
-                    contype=1,
-                    conaffinity=1,
-                    group=0,
-                    rgba=rgba,
-                )
+                body.add("geom", name=tip_name + "_collision", **geom_kwargs)
 
     def set_palm_roll(self, physics: mjcf.Physics, angle_rad: float) -> None:
         """Set the task-driven forearm_roll target (positive = thumb side down)."""
@@ -399,6 +463,24 @@ class DaxianHand(base.Hand):
         inertial.diaginertia = (self._c.FOREARM_INERTIA,) * 3
         inertial.fullinertia = None
 
+    def _local_axis_for_world(self, world_xyz: Sequence[float]) -> Tuple[float, float, float]:
+        """Forearm-local slide axis that moves the hand along ``world_xyz``.
+
+        Matches ``suite.tasks.base._hand_quat``: RPY, then Z-spin, then palm pitch
+        about world +Y. Left/right 180° spins are the same rotation, so one axis
+        works for both hands.
+        """
+        pitch = np.radians(float(getattr(self._c, "PALM_PITCH_UP_DEG", 0.0)))
+        # Local -> world before palm pitch (see module comment).
+        r0 = np.array(
+            [[0.0, 0.0, -1.0], [0.0, -1.0, 0.0], [-1.0, 0.0, 0.0]],
+            dtype=np.float64,
+        )
+        c, s = np.cos(pitch), np.sin(pitch)
+        ry = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]], dtype=np.float64)
+        axis = (ry @ r0).T @ np.asarray(world_xyz, dtype=np.float64)
+        return tuple(float(x) for x in axis)
+
     def _add_dofs(self) -> None:
         def _maybe_reflect_axis(
             axis: Sequence[float], reflect: bool
@@ -407,6 +489,16 @@ class DaxianHand(base.Hand):
                 return tuple([-a for a in axis])
             return axis
 
+        world_axis = {
+            "forearm_tx": (0.0, 1.0, 0.0),  # along keyboard
+            "forearm_ty": (0.0, 0.0, 1.0),  # vertical
+            "forearm_tz": (1.0, 0.0, 0.0),  # toward the player
+            "forearm_yaw": (0.0, 0.0, 1.0),  # yaw about world +Z
+        }
+        # With yaw enabled, roll must not also be world Z (local -X at pitch
+        # -90°). Use world +X so pronation and yaw stay independent.
+        if "forearm_yaw" in self._forearm_dofs:
+            world_axis["forearm_roll"] = (1.0, 0.0, 0.0)
         for dof_name in self._forearm_dofs:
             if dof_name not in _FOREARM_DOFS:
                 raise ValueError(
@@ -421,11 +513,36 @@ class DaxianHand(base.Hand):
                     if self._hand_side == base.HandSide.LEFT
                     else self._c.RIGHT_FOREARM_ROLL_RANGE
                 )
+            if dof_name == "forearm_yaw":
+                if self._hand_side == base.HandSide.LEFT:
+                    joint_range = getattr(
+                        self._c,
+                        "LEFT_FOREARM_YAW_RANGE",
+                        getattr(self._c, "FOREARM_YAW_RANGE", joint_range),
+                    )
+                else:
+                    joint_range = getattr(
+                        self._c,
+                        "RIGHT_FOREARM_YAW_RANGE",
+                        getattr(self._c, "FOREARM_YAW_RANGE", joint_range),
+                    )
+            tz_range = getattr(self._c, "FOREARM_TZ_RANGE", None)
+            if dof_name == "forearm_tz" and tz_range is not None:
+                joint_range = tz_range
+            ty_range = getattr(self._c, "FOREARM_TY_RANGE", None)
+            if dof_name == "forearm_ty" and ty_range is not None:
+                joint_range = ty_range
+            if dof_name in world_axis:
+                axis = self._local_axis_for_world(world_axis[dof_name])
+                if dof.reflect:
+                    axis = _maybe_reflect_axis(axis, True)
+            else:
+                axis = _maybe_reflect_axis(dof.axis, dof.reflect)
             joint = self.root_body.add(
                 "joint",
                 type=dof.joint_type,
                 name=dof_name,
-                axis=_maybe_reflect_axis(dof.axis, dof.reflect),
+                axis=axis,
                 range=joint_range,
             )
             joint.damping = physics_utils.get_critical_damping_from_stiffness(
@@ -503,16 +620,100 @@ class DaxianHand(base.Hand):
             )
         return self._action_spec
 
+    def _qpos_name(self, joint_key: str) -> str:
+        return f"{self.name}/{self._prefix}{joint_key}"
+
+    def _body_name(self, body_key: str) -> str:
+        return f"{self.name}/{self._prefix}{body_key}"
+
+    def _four_finger_mcp_ctrl(self, physics: mjcf.Physics) -> dict:
+        mcp = {}
+        for actuator in self._actuators:
+            key = self._joint_key(actuator.name)
+            if key.endswith("MCP_joint") and not key.startswith("thumb_"):
+                finger = key[: -len("_MCP_joint")]
+                mcp[finger] = float(
+                    np.asarray(physics.bind(actuator).ctrl).reshape(-1)[0]
+                )
+        return mcp
+
+    def _ik_flex_remaining(self, physics: mjcf.Physics, mcp: dict) -> dict:
+        """PIP+DIP needed so DIP +Z aligns with world -Z, at the commanded MCP."""
+        couple_mod = self._c
+        qpos0 = np.array(physics.data.qpos, copy=True)
+        remaining = {}
+        try:
+            for finger, mcp_val in mcp.items():
+                physics.named.data.qpos[self._qpos_name(f"{finger}_MCP_joint")] = (
+                    mcp_val
+                )
+                physics.named.data.qpos[self._qpos_name(f"{finger}_PIP_joint")] = 0.0
+                physics.named.data.qpos[self._qpos_name(f"{finger}_DIP_joint")] = 0.0
+            physics.forward()
+            target = getattr(
+                couple_mod, "FOUR_FINGER_IK_TARGET_WORLD", (0.0, 0.0, -1.0)
+            )
+            for finger in mcp:
+                rd = np.array(
+                    physics.named.data.xmat[self._body_name(f"{finger}_DIP_link")]
+                ).reshape(3, 3)
+                rm = np.array(
+                    physics.named.data.xmat[self._body_name(f"{finger}_MCP_link")]
+                ).reshape(3, 3)
+                remaining[finger] = float(
+                    couple_mod.signed_flex_to_align(rd[:, 2], rm[:, 1], target)
+                )
+        finally:
+            physics.data.qpos[:] = qpos0
+            physics.forward()
+        return remaining
+
+    def set_pip_dip_active_fingers(self, fingers: Optional[Sequence[str]]) -> None:
+        """Restrict PIP/DIP IK coupling to these four-finger names, or all if None."""
+        if fingers is None:
+            self._pip_dip_active_fingers = None
+        else:
+            self._pip_dip_active_fingers = frozenset(fingers)
+
     def _pin_fixed_fingers(self, physics: mjcf.Physics) -> None:
-        """Hold four-finger PIP/DIP and thumb MCP/PIP at rest when reduced."""
+        """Hold pinned joints at rest, or IK PIP/DIP for MIDI-assigned fingers."""
         if not self._reduce_action_space:
             return
         rest = self._c.rest_ctrl()
+        coupled = {}
+        couple_fn = getattr(self._c, "couple_four_finger_pip_dip", None)
+        idle_fn = getattr(self._c, "idle_four_finger_pip_dip", None)
+        if (
+            couple_fn is not None
+            and getattr(self._c, "COUPLE_PIP_DIP_TO_MCP", False)
+        ):
+            mcp = self._four_finger_mcp_ctrl(physics)
+            active = self._pip_dip_active_fingers
+            if active is not None:
+                mcp = {f: v for f, v in mcp.items() if f in active}
+            flex = None
+            if hasattr(self._c, "signed_flex_to_align") and mcp:
+                flex = self._ik_flex_remaining(physics, mcp)
+            coupled = couple_fn(mcp, rest, flex_remaining=flex) if mcp else {}
+            if active is not None:
+                idle = idle_fn(rest) if idle_fn is not None else {}
+                for finger in getattr(self._c, "FOUR_FINGERS", ()):
+                    if finger in active:
+                        continue
+                    pip_key = f"{finger}_PIP_joint"
+                    dip_key = f"{finger}_DIP_joint"
+                    coupled[pip_key] = float(
+                        idle.get(pip_key, rest.get(pip_key, 0.0))
+                    )
+                    coupled[dip_key] = float(idle.get(dip_key, 0.0))
         for actuator in self._task_actuators:
             key = self._joint_key(actuator.name)
             if key not in self._pinned_joints:
                 continue
-            physics.bind(actuator).ctrl = float(rest.get(key, 0.0))
+            if key in coupled:
+                physics.bind(actuator).ctrl = float(coupled[key])
+            else:
+                physics.bind(actuator).ctrl = float(rest.get(key, 0.0))
 
     def initialize_episode(self, physics, random_state) -> None:
         del random_state
@@ -527,13 +728,32 @@ class DaxianHand(base.Hand):
                 if actuator.name.endswith(name):
                     physics.bind(actuator).ctrl = float(val)
                     break
-        # Four-finger MCP is policy-driven and not in rest_ctrl(): idle is URDF
-        # straight 0, not the [0, 1.57] midpoint.
+        # Four-finger MCP is policy-driven and not a pinned rest joint: idle is
+        # URDF straight 0, not the [0, 1.57] midpoint. Thumb MCP is also policy
+        # on V2 and is initialized from rest_ctrl() above.
         for joint in self.joints:
             if joint.name.endswith("MCP_joint") and "thumb_" not in joint.name:
                 physics.bind(joint).qpos = 0.0
         for actuator in self._actuators:
             if actuator.name.endswith("MCP_joint") and "thumb_" not in actuator.name:
+                physics.bind(actuator).ctrl = 0.0
+        # Unlocked four-finger PIP/DIP: CanonicalSpec 0 = straight, so init
+        # there too. Pinned PIP/DIP are IK-solved from MCP in _pin_fixed_fingers.
+        for joint in self.joints:
+            key = self._joint_key(joint.name)
+            if key in self._pinned_joints:
+                continue
+            if (key.endswith("PIP_joint") or key.endswith("DIP_joint")) and (
+                not key.startswith("thumb_")
+            ):
+                physics.bind(joint).qpos = 0.0
+        for actuator in self._actuators:
+            key = self._joint_key(actuator.name)
+            if key in self._pinned_joints:
+                continue
+            if (key.endswith("PIP_joint") or key.endswith("DIP_joint")) and (
+                not key.startswith("thumb_")
+            ):
                 physics.bind(actuator).ctrl = 0.0
         self._pin_fixed_fingers(physics)
 

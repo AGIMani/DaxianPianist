@@ -39,6 +39,8 @@ _KEY_CENTER_IN_BOUNDS = 0.25
 _KEY_CENTER_MARGIN = 1.0
 # Per wrongly activated (non-MIDI) key. Also gates fingering_reward.
 _FALSE_PRESS_PENALTY = 0.15
+# Per distinct pair of fingers in contact (same or opposite hand).
+_FINGER_COLLISION_PENALTY = 0.15
 
 # Energy penalty coefficient.
 _ENERGY_PENALTY_COEF = 5e-3
@@ -48,6 +50,64 @@ _FINGERTIP_ALPHA = 1.0
 
 # Bounds for the uniform distribution from which initial hand offset is sampled.
 _POSITION_OFFSET = 0.05
+
+_FINGER_NAME_TOKENS: Tuple[Tuple[str, str], ...] = (
+    ("pinky", "pinky"),
+    ("little", "pinky"),
+    ("thumb", "thumb"),
+    ("index", "index"),
+    ("middle", "middle"),
+    ("mid_", "middle"),
+    ("ring", "ring"),
+    ("_ff", "index"),
+    ("_mf", "middle"),
+    ("_rf", "ring"),
+    ("_lf", "pinky"),
+    ("_th", "thumb"),
+)
+
+
+def _hand_side_from_body_name(name: str) -> Optional[str]:
+    n = name.lower()
+    if "/lh_" in n or n.startswith("lh_"):
+        return "L"
+    if "/rh_" in n or n.startswith("rh_"):
+        return "R"
+    return None
+
+
+def _finger_id_from_body_name(name: str) -> Optional[str]:
+    """Map a geom body to ``L:index`` / ``R:thumb`` or None if not a finger."""
+    n = name.lower()
+    if any(skip in n for skip in ("palm", "forearm", "wrist", "world")):
+        return None
+    hand = _hand_side_from_body_name(n)
+    if hand is None:
+        return None
+    for token, finger in _FINGER_NAME_TOKENS:
+        if token in n:
+            return f"{hand}:{finger}"
+    return None
+
+
+def _n_finger_collision_pairs(physics: mjcf.Physics) -> int:
+    """Count distinct (finger A, finger B) pairs that currently have a contact."""
+    model = physics.model
+    data = physics.data
+    labels = []
+    for geom_id in range(model.ngeom):
+        body_id = int(model.geom_bodyid[geom_id])
+        body_name = model.id2name(body_id, "body") or ""
+        labels.append(_finger_id_from_body_name(body_name))
+    pairs = set()
+    for i in range(int(data.ncon)):
+        contact = data.contact[i]
+        a = labels[int(contact.geom1)]
+        b = labels[int(contact.geom2)]
+        if a is None or b is None or a == b:
+            continue
+        pairs.add(tuple(sorted((a, b))))
+    return len(pairs)
 
 
 class PianoWithShadowHands(base.PianoTask):
@@ -148,11 +208,16 @@ class PianoWithShadowHands(base.PianoTask):
             self._reward_fn.add("forearm_reward", self._compute_forearm_reward)
         self._reward_fn.add("key_center_reward", self._compute_key_center_reward)
         self._reward_fn.add("false_press_penalty", self._compute_false_press_penalty)
+        self._reward_fn.add(
+            "finger_collision_penalty", self._compute_finger_collision_penalty
+        )
 
     def _reset_quantities_at_episode_init(self) -> None:
         self._t_idx: int = 0
         self._should_terminate: bool = False
         self._discount: float = 1.0
+        self._rh_keys: List[Tuple[int, int]] = []
+        self._lh_keys: List[Tuple[int, int]] = []
         self._rh_keys_current: List[Tuple[int, int]] = []
         self._lh_keys_current: List[Tuple[int, int]] = []
 
@@ -179,6 +244,11 @@ class PianoWithShadowHands(base.PianoTask):
     ) -> None:
         self._maybe_change_midi(random_state)
         self._reset_quantities_at_episode_init()
+        self._update_fingering_state()
+        for hand in (self.right_hand, self.left_hand):
+            pin = getattr(hand, "_pin_fixed_fingers", None)
+            if pin is not None:
+                pin(physics)
         self._randomize_initial_hand_positions(physics, random_state)
 
     def before_step(
@@ -188,6 +258,7 @@ class PianoWithShadowHands(base.PianoTask):
         random_state: np.random.RandomState,
     ) -> None:
         """Applies the control to the hands and the sustain pedal to the piano."""
+        self._update_fingering_state()
         action_right, action_left = np.split(action[:-1], 2)
         self.right_hand.apply_action(physics, action_right, random_state)
         self.left_hand.apply_action(physics, action_left, random_state)
@@ -388,6 +459,10 @@ class PianoWithShadowHands(base.PianoTask):
         del physics
         return -_FALSE_PRESS_PENALTY * float(self._n_false_presses())
 
+    def _compute_finger_collision_penalty(self, physics: mjcf.Physics) -> float:
+        """Penalty when two different fingers are in contact."""
+        return -_FINGER_COLLISION_PENALTY * float(_n_finger_collision_pairs(physics))
+
     def _compute_key_center_reward(self, physics: mjcf.Physics) -> float:
         """Higher when the fingertip contact is on the key's centre line (world Y)."""
         offsets: List[float] = []
@@ -436,8 +511,34 @@ class PianoWithShadowHands(base.PianoTask):
             self._goal_state[i, keys] = 1.0
             self._goal_state[i, -1] = self._sustains[t]
 
+    def _four_fingers_from_keys(self, keys: List[Tuple[int, int]]) -> Tuple[str, ...]:
+        lookup = getattr(self.hand_consts, "four_finger_from_mjcf_fingering", None)
+        names = []
+        for _, mjcf_i in keys:
+            if lookup is not None:
+                name = lookup(mjcf_i)
+            else:
+                name = {1: "index", 2: "mid", 3: "ring", 4: "pinky"}.get(int(mjcf_i))
+            if name:
+                names.append(name)
+        return tuple(names)
+
+    def _sync_pip_dip_midi_gate(self) -> None:
+        rh = self._four_fingers_from_keys(getattr(self, "_rh_keys", []))
+        lh = self._four_fingers_from_keys(getattr(self, "_lh_keys", []))
+        setter = getattr(self.right_hand, "set_pip_dip_active_fingers", None)
+        if setter is not None:
+            setter(rh)
+        setter = getattr(self.left_hand, "set_pip_dip_active_fingers", None)
+        if setter is not None:
+            setter(lh)
+
     def _update_fingering_state(self) -> None:
-        if self._t_idx == len(self._notes):
+        if self._t_idx >= len(self._notes):
+            self._rh_keys = []
+            self._lh_keys = []
+            self._fingering_state = np.zeros((2, 5), dtype=np.float64)
+            self._sync_pip_dip_midi_gate()
             return
 
         fingering = [note.fingering for note in self._notes[self._t_idx]]
@@ -458,6 +559,7 @@ class PianoWithShadowHands(base.PianoTask):
         for hand, keys in enumerate([self._rh_keys, self._lh_keys]):
             for key, mjcf_fingering in keys:
                 self._fingering_state[hand, mjcf_fingering] = 1.0
+        self._sync_pip_dip_midi_gate()
 
     def _add_observables(self) -> None:
         # Enable hand observables.
